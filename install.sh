@@ -6,3 +6,7 @@ sudo mkdir -p /etc/keyd
 sudo rm -f /etc/keyd/default.conf
 sudo ln -s "$HOME/dotfiles/keyd/default.conf" /etc/keyd/default.conf
 
+sudo rm -f ~/.tmux.conf
+sudo ln -s "$HOME/dotfiles/.tmux.conf" ~/.tmux.conf
+
+sudo systemctl restart keyd
