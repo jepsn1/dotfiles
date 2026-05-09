@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SESSION=dev
+
+tmux kill-session -t "$SESSION" 2>/dev/null || true
+
+DEV=/home/marcus/dev
+SSH_HOST=161.35.193.252
+
+# Use real terminal size so -l 25% reflects actual window height
+COLS=$(tput cols 2>/dev/null || echo 200)
+ROWS=$(tput lines 2>/dev/null || echo 50)
+
+# Window 1: ralph (ralph-core | ralph-agents, with htop above ralph-agents)
+tmux new-session -d -s "$SESSION" -n ralph -c "$DEV/ralph-core" -x "$COLS" -y "$ROWS"
+PANE_CORE=$(tmux display-message -p -t "$SESSION:ralph" '#{pane_id}')
+tmux send-keys -t "$PANE_CORE" 'claude' C-m
+
+PANE_AGENTS=$(tmux split-window -h -t "$PANE_CORE" -c "$DEV/ralph-agents" -P -F '#{pane_id}')
+tmux send-keys -t "$PANE_AGENTS" 'claude' C-m
+
+PANE_HTOP=$(tmux split-window -v -b -t "$PANE_AGENTS" -P -F '#{pane_id}')
+tmux send-keys -t "$PANE_HTOP" "ssh -t $SSH_HOST htop" C-m
+tmux resize-pane -t "$PANE_HTOP" -y "$((ROWS / 4))"
+
+# Window 2: logbuy-frontend (claude | shell-on-top-of-nvim)
+tmux new-window -t "$SESSION" -n logbuy -c "$DEV/logbuy-frontend"
+PANE_LOGBUY=$(tmux display-message -p -t "$SESSION:logbuy" '#{pane_id}')
+tmux send-keys -t "$PANE_LOGBUY" 'claude' C-m
+
+PANE_NVIM=$(tmux split-window -h -t "$PANE_LOGBUY" -c "$DEV/logbuy-frontend" -P -F '#{pane_id}')
+tmux send-keys -t "$PANE_NVIM" 'nvim .' C-m
+
+PANE_LOGSHELL=$(tmux split-window -v -b -t "$PANE_NVIM" -c "$DEV/logbuy-frontend" -P -F '#{pane_id}')
+tmux resize-pane -t "$PANE_LOGSHELL" -y "$((ROWS / 4))"
+
+# Window 3: shell in /home/marcus/dev
+tmux new-window -t "$SESSION" -n shell -c "$DEV"
+
+tmux select-window -t "$SESSION:ralph"
+tmux select-pane -t "$PANE_CORE"
+
+exec tmux attach -t "$SESSION"
