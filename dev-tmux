@@ -6,7 +6,8 @@ SESSION=dev
 tmux kill-session -t "$SESSION" 2>/dev/null || true
 
 DEV=/home/marcus/dev
-SSH_HOST=161.35.193.252
+# requires Host ralph alias in ~/.ssh/config (HostName, User, IdentityFile)
+SSH_HOST=ralph
 
 # Use real terminal size so -l 25% reflects actual window height
 COLS=$(tput cols 2>/dev/null || echo 200)
