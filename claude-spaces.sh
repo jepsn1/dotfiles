@@ -22,7 +22,21 @@ _space() {
 }
 
 claude() {
-  local s
+  local s d
+  case "$1" in
+    rc|remote-control)
+      # Remote Control refuses leading --settings/--add-dir and has no way to
+      # take them. Spawned sessions only get the cwd's project settings, so
+      # only allow it from a space root, where that is the space's policy.
+      d="$(cd -P -- "$PWD" 2>/dev/null && pwd -P)" || d="$PWD"
+      if [ "$d" != "$HOME/visma" ] && [ "$d" != "$HOME/private" ]; then
+        echo "claude $1: run from ~/visma or ~/private so the space policy loads" >&2
+        return 1
+      fi
+      command claude "$@"
+      return
+      ;;
+  esac
   if s="$(_space)"; then
     command claude --add-dir "$HOME/$s" \
       --settings "$HOME/$s/.claude/settings.json" "$@"
