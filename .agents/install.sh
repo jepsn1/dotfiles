@@ -17,4 +17,7 @@ for skill in "$AGENTS_DIR"/skills/*/; do
   ln -s "$AGENTS_DIR/skills/$name" "$HOME/.claude/skills/$name"
 done
 
-echo "linked AGENTS.md + $(find "$AGENTS_DIR/skills" -maxdepth 1 -mindepth 1 -type d | wc -l) skills into ~/.claude"
+# status line script
+ln -sf "$AGENTS_DIR/statusline.sh" "$HOME/.claude/statusline.sh"
+
+echo "linked AGENTS.md + statusline + $(find "$AGENTS_DIR/skills" -maxdepth 1 -mindepth 1 -type d | wc -l) skills into ~/.claude"
