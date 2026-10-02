@@ -24,7 +24,8 @@ _space() {
 claude() {
   local s
   if s="$(_space)"; then
-    command claude --settings "$HOME/$s/.claude/settings.json" "$@"
+    command claude --add-dir "$HOME/$s" \
+      --settings "$HOME/$s/.claude/settings.json" "$@"
   else
     command claude "$@"
   fi
