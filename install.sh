@@ -14,3 +14,7 @@ rm -f "$HOME/.local/bin/dev-tmux"
 ln -s "$HOME/dotfiles/dev-tmux" "$HOME/.local/bin/dev-tmux"
 
 sudo systemctl restart keyd
+
+# claude workspace isolation (visma <-> private): source the shell wrapper
+LINE='[ -f "$HOME/dotfiles/claude-spaces.sh" ] && . "$HOME/dotfiles/claude-spaces.sh"'
+grep -qF "claude-spaces.sh" "$HOME/.bashrc" || printf '\n%s\n' "$LINE" >> "$HOME/.bashrc"
