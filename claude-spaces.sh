@@ -27,7 +27,9 @@ claude() {
     command claude --add-dir "$HOME/$s" \
       --settings "$HOME/$s/.claude/settings.json" "$@"
   else
-    command claude "$@"
+    # Anywhere else on the OS: work is read-only, so OS puttering can't
+    # accidentally edit ~/visma.
+    command claude --settings "$HOME/dotfiles/claude-outside.json" "$@"
   fi
 }
 
