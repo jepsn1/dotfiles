@@ -38,7 +38,7 @@ BASE="${AGENT_BASE_BRANCH:-$(git ls-remote --exit-code --heads origin develop >/
 AGENT_ID="${AGENT_ID:-$(whoami)-$(basename "$PWD")}"   # stable, unique per agent
 # Claim locks: shared dir if set (agents as different Linux users), else this clone
 CLAIMS="${AGENT_CLAIMS_DIR:-$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-claims}"
-mkdir -p "$CLAIMS"
+(umask 002; mkdir -p "$CLAIMS")   # group-writable, so other users can clear stale claims
 ```
 
 ## Part A — Orchestrator: split a backlog into grabbable issues
@@ -97,7 +97,7 @@ fails and moves on. This is the source of truth for who-owns-what.
 
 ```bash
 ISSUE=1234
-if mkdir "$CLAIMS/$ISSUE" 2>/dev/null; then
+if (umask 002; mkdir "$CLAIMS/$ISSUE") 2>/dev/null; then
   printf 'owner=%s\nbranch=fix/log-1234-slug\nat=%s\n' \
     "$AGENT_ID" "$(date -u +%FT%TZ)" > "$CLAIMS/$ISSUE/claim"
   echo "claimed $ISSUE"
