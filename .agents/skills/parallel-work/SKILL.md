@@ -27,8 +27,19 @@ filesystem claim lock, and an absolute worktree-isolation rule.
   your way, scope your command around it; never delete it to "tidy up".
 - **Claim before you read or edit code.** Lose the claim race → pick another
   issue. Never work an issue you didn't win.
-- **Branch from the integration branch** (here: `develop`) and PR back to it.
-  Never branch from or PR into `main` unless it's an explicit release.
+- **Branch from the integration branch** (`$BASE`, see below) and PR back to
+  it. Never branch from or PR into `main` unless it's an explicit release.
+
+## Setup (every worker, once per shell)
+```bash
+# Integration branch: override, else develop if it exists, else the default branch
+BASE="${AGENT_BASE_BRANCH:-$(git ls-remote --exit-code --heads origin develop >/dev/null 2>&1 \
+  && echo develop || git symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@')}"
+AGENT_ID="${AGENT_ID:-$(whoami)-$(basename "$PWD")}"   # stable, unique per agent
+# Claim locks: shared dir if set (agents as different Linux users), else this clone
+CLAIMS="${AGENT_CLAIMS_DIR:-$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-claims}"
+mkdir -p "$CLAIMS"
+```
 
 ## Part A — Orchestrator: split a backlog into grabbable issues
 
@@ -79,17 +90,13 @@ gh issue list --repo OWNER/REPO --label agent-ready --state open \
 Skip anything labelled `blocked` or `agent:claimed`.
 
 ### 2. Claim it — atomically
-The claim lock lives in the repo's **shared git common dir**, so every worktree
-of this clone sees the same locks. `mkdir` either creates the dir or fails —
-atomically. First agent wins; everyone else fails and moves on. This is the
-source of truth for who-owns-what.
+The claim lock lives in `$CLAIMS` (Setup) — by default the repo's **shared git
+common dir**, so every worktree of this clone sees the same locks. `mkdir`
+either creates the dir or fails — atomically. First agent wins; everyone else
+fails and moves on. This is the source of truth for who-owns-what.
 
 ```bash
 ISSUE=1234
-AGENT_ID="${AGENT_ID:-agent-$$}"            # stable, unique per agent
-CLAIMS="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-claims"
-mkdir -p "$CLAIMS"
-
 if mkdir "$CLAIMS/$ISSUE" 2>/dev/null; then
   printf 'owner=%s\nbranch=fix/log-1234-slug\nat=%s\n' \
     "$AGENT_ID" "$(date -u +%FT%TZ)" > "$CLAIMS/$ISSUE/claim"
@@ -107,7 +114,7 @@ gh issue comment $ISSUE --repo OWNER/REPO --body "Claimed by $AGENT_ID."
 
 ### 3. Make YOUR worktree (never reuse another agent's)
 ```bash
-git worktree add ../wt-log-$ISSUE -b fix/log-1234-slug origin/develop
+git worktree add ../wt-log-$ISSUE -b fix/log-1234-slug "origin/$BASE"
 cd ../wt-log-$ISSUE
 ln -s "$OLDPWD/node_modules" node_modules   # deps are branch-independent
 ```
@@ -115,7 +122,7 @@ ln -s "$OLDPWD/node_modules" node_modules   # deps are branch-independent
 ### 4. Build, verify, PR
 - Implement; run typecheck, lint, tests.
 - `git push -u origin fix/log-1234-slug`
-- `gh pr create --repo OWNER/REPO --base develop --title "…" --body "… refs the issue"`
+- `gh pr create --repo OWNER/REPO --base "$BASE" --title "…" --body "… refs the issue"`
 - On the issue: `gh issue edit $ISSUE --remove-label agent:claimed --add-label agent:in-review`
   and comment the PR link.
 
@@ -132,10 +139,12 @@ still open may be reclaimed. Check `gh pr list --search <branch>` first. When
 unsure, ask a human — never stomp a live claim.
 
 ## AGENT_ID
-Pick something stable and unique for your session (worktree basename, or a
-short fixed tag). It goes in the claim record so others can see who holds what.
+Defaults to `<user>-<cwd basename>`; override with a short fixed tag if you
+like. It goes in the claim record so others can see who holds what.
 
-## Multi-clone note
-The lock is shared across **worktrees of one clone** (they share the git common
-dir). If agents use separate clones on the same machine, point `CLAIMS` at a
-fixed shared path instead, e.g. `~/.cache/agent-claims/OWNER-REPO`.
+## Multi-clone / multi-user note
+The default lock is shared across **worktrees of one clone** (they share the
+git common dir). If agents use separate clones, set `AGENT_CLAIMS_DIR` to one
+fixed path per repo that every agent can write. Agents running as different
+Linux users each have their own clone and home, so give them a shared group
+dir, e.g. `/srv/agent-claims/OWNER-REPO` owned by group `agents`, mode 2770.
