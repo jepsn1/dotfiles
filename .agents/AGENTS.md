@@ -7,3 +7,7 @@
 ## PRs
 
 - When creating a PR, check conversation context for related GitHub issues and link them with `Closes #N` in the PR body.
+
+## Parallel work
+
+- A GitHub issue labelled `agent-ready` = parallel work. Invoke the `parallel-work` skill (Worker role): claim the issue atomically BEFORE reading/editing code, build it in your OWN worktree, open a PR. Never work an issue you didn't win the claim on; never touch a worktree you didn't create.
