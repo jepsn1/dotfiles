@@ -16,6 +16,10 @@ filesystem claim lock, and an absolute worktree-isolation rule.
 ## Golden rules (violating these corrupts other agents' work)
 
 - **One agent = one issue = one worktree = one branch = one PR.**
+- **Claiming means committing to build it.** Once you win the claim, run the
+  whole flow — worktree → implement → verify → PR — without pausing to ask
+  "should I start?". Work happens in an isolated worktree, so it's reversible;
+  don't treat it as a hard-to-reverse action needing confirmation.
 - **NEVER touch a worktree you did not create this session.** No
   `git worktree remove/prune`, `rm -rf`, `git checkout` over it, `git reset`,
   `git stash`, or `git add -A` that sweeps one in. Uncommitted work in a
@@ -27,6 +31,18 @@ filesystem claim lock, and an absolute worktree-isolation rule.
   Never branch from or PR into `main` unless it's an explicit release.
 
 ## Part A — Orchestrator: split a backlog into grabbable issues
+
+**Scope: only Marcus's Jira tickets.** When slicing from a Jira board/column,
+filter `assignee = marcus.klausen` — never slice other people's tickets, even
+if they sit in the same column.
+
+**Read the ticket's COMMENTS, not just the description.** Acceptance criteria
+are routinely refined or superseded in Jira comments (BA/QA/backend chime in
+after the description was written). Before slicing, fetch
+`GET /rest/api/2/issue/<KEY>/comment` and fold every AC-bearing comment into
+the issue body. Also diff the AC against what's already merged on the
+integration branch — never slice from a PR description or a stale ticket
+state; check the actual code.
 
 Each issue must be finishable by one worker alone. Make them so:
 
@@ -48,6 +64,12 @@ gh issue create --repo OWNER/REPO --title "LOG-1234: <summary>" \
 ```
 
 ## Part B — Worker: find → claim → worktree → PR
+
+**Read everything before building:** the GitHub issue body AND its comments,
+and the linked Jira ticket's description AND comments
+(`GET /rest/api/2/issue/<KEY>/comment`) — AC corrections often live only in a
+late Jira comment. If ticket comments contradict the issue body, the comments
+win; note the discrepancy on the issue.
 
 ### 1. Find unclaimed work
 ```bash
