@@ -21,7 +21,7 @@ as_user() { sudo -u "$NAME" -H bash -lc "$1"; }
 
 log "Packages"
 need=()
-for p in git curl tmux neovim gh; do dpkg -s "$p" >/dev/null 2>&1 || need+=("$p"); done
+for p in git curl tmux neovim gh build-essential ripgrep fd-find unzip; do dpkg -s "$p" >/dev/null 2>&1 || need+=("$p"); done
 if ((${#need[@]})); then apt-get install -yq "${need[@]}"; fi
 
 log "User $NAME"
