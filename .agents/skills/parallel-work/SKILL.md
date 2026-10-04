@@ -36,8 +36,12 @@ filesystem claim lock, and an absolute worktree-isolation rule.
 BASE="${AGENT_BASE_BRANCH:-$(git ls-remote --exit-code --heads origin develop >/dev/null 2>&1 \
   && echo develop || git symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@')}"
 AGENT_ID="${AGENT_ID:-$(whoami)-$(basename "$PWD")}"   # stable, unique per agent
-# Claim locks: shared dir if set (agents as different Linux users), else this clone
-CLAIMS="${AGENT_CLAIMS_DIR:-$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-claims}"
+# Claim locks: explicit dir > shared root + owner-repo (agents as different Linux users) > this clone
+CLAIMS="${AGENT_CLAIMS_DIR:-}"
+if [ -z "$CLAIMS" ] && [ -n "${AGENT_CLAIMS_ROOT:-}" ]; then
+  CLAIMS="$AGENT_CLAIMS_ROOT/$(git remote get-url origin | sed -E 's#\.git$##; s#.*[:/]([^/]+/[^/]+)$#\1#; s#/#-#' | tr '[:upper:]' '[:lower:]')"
+fi
+: "${CLAIMS:=$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-claims}"
 (umask 002; mkdir -p "$CLAIMS")   # group-writable, so other users can clear stale claims
 ```
 
@@ -148,3 +152,5 @@ git common dir). If agents use separate clones, set `AGENT_CLAIMS_DIR` to one
 fixed path per repo that every agent can write. Agents running as different
 Linux users each have their own clone and home, so give them a shared group
 dir, e.g. `/srv/agent-claims/OWNER-REPO` owned by group `agents`, mode 2770.
+Or set `AGENT_CLAIMS_ROOT=/srv/agent-claims` once (worker users get it from
+`worker/new-worker.sh`) and the `owner-repo` subdir is derived from `origin`.
