@@ -21,8 +21,17 @@ as_user() { sudo -u "$NAME" -H bash -lc "$1"; }
 
 log "Packages"
 need=()
-for p in git curl tmux neovim gh build-essential ripgrep fd-find unzip; do dpkg -s "$p" >/dev/null 2>&1 || need+=("$p"); done
+for p in git curl tmux gh build-essential ripgrep fd-find unzip; do dpkg -s "$p" >/dev/null 2>&1 || need+=("$p"); done
 if ((${#need[@]})); then apt-get install -yq "${need[@]}"; fi
+
+# Neovim pinned system-wide (apt's is older); /usr/local/bin wins over /usr/bin
+NVIM_VERSION=v0.12.5
+if [[ "$(/usr/local/bin/nvim --version 2>/dev/null | head -1)" != "NVIM $NVIM_VERSION" ]]; then
+  log "Neovim $NVIM_VERSION"
+  rm -rf /opt/nvim-linux-x86_64
+  curl -fsSL "https://github.com/neovim/neovim/releases/download/$NVIM_VERSION/nvim-linux-x86_64.tar.gz" | tar -xz -C /opt
+  ln -sfn /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+fi
 
 log "User $NAME"
 getent passwd "$NAME" >/dev/null || adduser --disabled-password --gecos "" "$NAME"
