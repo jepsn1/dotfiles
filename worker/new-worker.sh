@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Create or update an isolated agent user (work1..work9). Idempotent, safe to re-run.
-# Usage (from your admin user): sudo ~/dotfiles/worker/new-worker.sh workN [git-email]
+# Usage (from your admin user):
+#   sudo ~/dotfiles/worker/new-worker.sh workN [git-email]   # create/update one worker
+#   sudo ~/dotfiles/worker/new-worker.sh                     # update all existing workers
 #
 # Does: user + ssh key, chmod 700 home, `agents` group + /srv/agent-claims,
 # tmux/neovim/gh, dotfiles + install.sh, Claude Code, worker env in ~/.bashrc.
@@ -8,6 +10,15 @@
 set -euo pipefail
 
 [[ $EUID -eq 0 ]] || { echo "Run with sudo" >&2; exit 1; }
+
+# No args: re-run for every existing worker (members of group agents)
+if [[ $# -eq 0 ]]; then
+  workers="$(getent group agents | cut -d: -f4 | tr ',' '\n' | grep -E '^work[1-9]$' || true)"
+  [[ -n $workers ]] || { echo "no workers yet; usage: new-worker.sh workN [git-email]" >&2; exit 1; }
+  for w in $workers; do echo -e "\n######## $w"; "$0" "$w"; done
+  exit 0
+fi
+
 NAME="${1:?usage: new-worker.sh workN [git-email]}"
 [[ $NAME =~ ^work[1-9]$ ]] || { echo "name must be work1..work9 (dev ports 4N00-4N09)" >&2; exit 1; }
 EMAIL="${2:-}"
