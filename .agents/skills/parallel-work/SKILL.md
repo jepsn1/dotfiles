@@ -69,6 +69,11 @@ Each issue must be finishable by one worker alone. Make them so:
 - **Label the queue** `agent-ready` so workers can find pickable work. Add a
   `blocked` label (and the `Blocked by #N` line) to any issue that isn't yet
   pickable; drop it when the blocker merges.
+- **Label human-in-the-loop issues `HITL`.** Any issue needing a human
+  decision, design review, credentials, or manual verification gets the `HITL`
+  label (on top of `agent-ready` if an agent can still build it), and the body
+  says exactly what the human must decide/do. Everything else is AFK. Prefer
+  AFK slices — split the human part out where possible.
 - **Flag file overlap.** If two issues touch the same files, say so in both —
   workers serialize those or coordinate, rather than racing conflicting PRs.
 
@@ -91,7 +96,10 @@ win; note the discrepancy on the issue.
 gh issue list --repo OWNER/REPO --label agent-ready --state open \
   --json number,title,labels
 ```
-Skip anything labelled `blocked` or `agent:claimed`.
+Skip anything labelled `blocked` or `agent:claimed`. Running unattended →
+also skip `HITL`. If you do take a `HITL` issue: build up to the human step,
+then stop and ask (issue comment + tell the user) — never guess the decision.
+Keep the `HITL` label on the issue and mention it in the PR body.
 
 ### 2. Claim it — atomically
 The claim lock lives in `$CLAIMS` (Setup) — by default the repo's **shared git
