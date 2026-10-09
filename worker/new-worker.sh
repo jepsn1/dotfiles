@@ -58,7 +58,10 @@ if [[ -d $USER_HOME/dotfiles && ! -L $USER_HOME/dotfiles ]]; then
   rm -rf "$USER_HOME/dotfiles"
 fi
 ln -sfn "$SHARED" "$USER_HOME/dotfiles"
-chown -h "$NAME:$NAME" "$USER_HOME/dotfiles"
+# shared tree must stay admin-owned + not worker-writable (it feeds the admin's CLAUDE.md, statusline, managed settings)
+chown "$ADMIN:$ADMIN" "$SHARED"
+bad="$(find "$SHARED" \( ! -user "$ADMIN" -o -perm /022 \) -not -path '*/.git/*' -print -quit)"
+[[ -z $bad ]] || { echo "unsafe ownership/perms in $SHARED (e.g. $bad); fix: chown -R $ADMIN: $SHARED && chmod -R go-w $SHARED" >&2; exit 1; }
 as_user "bash ~/dotfiles/install.sh </dev/null"
 
 log "Claude Code"
