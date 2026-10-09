@@ -32,7 +32,7 @@ as_user() { sudo -u "$NAME" -H bash -lc "$1"; }
 
 log "Packages"
 need=()
-for p in git curl tmux neovim gh build-essential ripgrep fd-find unzip; do dpkg -s "$p" >/dev/null 2>&1 || need+=("$p"); done
+for p in git curl jq tmux neovim gh build-essential ripgrep fd-find unzip; do dpkg -s "$p" >/dev/null 2>&1 || need+=("$p"); done
 if ((${#need[@]})); then apt-get install -yq "${need[@]}"; fi
 
 
@@ -65,6 +65,8 @@ if [[ ! -f "$USER_HOME/.claude/settings.json" ]]; then
 EOF
   chown "$NAME:$NAME" "$USER_HOME/.claude/settings.json"
 fi
+# existing settings (e.g. rewritten by claude): ensure statusLine is set
+as_user 'f=~/.claude/settings.json; jq -e .statusLine "$f" >/dev/null || { jq ".statusLine = {type: \"command\", command: \"~/.claude/statusline.sh\"}" "$f" > "$f.tmp" && mv "$f.tmp" "$f"; }'
 
 log "Worker env"
 if ! grep -q ">>> worker" "$USER_HOME/.bashrc"; then
