@@ -25,6 +25,7 @@ EMAIL="${2:-}"
 ADMIN="${SUDO_USER:?run via sudo from your admin user}"
 ADMIN_HOME="$(getent passwd "$ADMIN" | cut -d: -f6)"
 USER_HOME="/home/$NAME"
+SHARED=/srv/dotfiles
 N="${NAME#work}"
 
 log() { echo -e "\n==> $*"; }
@@ -49,24 +50,27 @@ getent group agents >/dev/null || groupadd agents
 usermod -aG agents "$NAME"
 install -d -m 2770 -o root -g agents /srv/agent-claims
 
-log "Dotfiles"
-as_user "if [ -d ~/dotfiles/.git ]; then git -C ~/dotfiles pull -q --ff-only; else git clone -q https://github.com/jepsn1/dotfiles ~/dotfiles; fi"
+log "Dotfiles (shared, read-only for workers: $SHARED)"
+# one checkout for every user: edit $SHARED once, live everywhere (all links point into it)
+[[ -d $SHARED/.git ]] || { echo "missing $SHARED; move the admin checkout there first" >&2; exit 1; }
+if [[ -d $USER_HOME/dotfiles && ! -L $USER_HOME/dotfiles ]]; then
+  [[ -z "$(as_user 'git -C ~/dotfiles status --porcelain')" ]] || { echo "$NAME:~/dotfiles has local changes; commit/drop them first" >&2; exit 1; }
+  rm -rf "$USER_HOME/dotfiles"
+fi
+ln -sfn "$SHARED" "$USER_HOME/dotfiles"
+chown -h "$NAME:$NAME" "$USER_HOME/dotfiles"
 as_user "bash ~/dotfiles/install.sh </dev/null"
 
 log "Claude Code"
 as_user "[ -x ~/.local/bin/claude ] || curl -fsSL https://claude.ai/install.sh | bash"
+# machine-wide settings for every user (statusline, merge permission): .agents/managed-settings.json
+install -d /etc/claude-code
+ln -sfn "$SHARED/.agents/managed-settings.json" /etc/claude-code/managed-settings.json
 if [[ ! -f "$USER_HOME/.claude/settings.json" ]]; then
   install -d -o "$NAME" -g "$NAME" "$USER_HOME/.claude"
-  cat > "$USER_HOME/.claude/settings.json" <<'EOF'
-{
-  "permissions": { "allow": ["Bash"] },
-  "statusLine": { "type": "command", "command": "~/.claude/statusline.sh" }
-}
-EOF
+  echo '{ "permissions": { "allow": ["Bash"] } }' > "$USER_HOME/.claude/settings.json"
   chown "$NAME:$NAME" "$USER_HOME/.claude/settings.json"
 fi
-# existing settings (e.g. rewritten by claude): ensure statusLine is set
-as_user 'f=~/.claude/settings.json; jq -e .statusLine "$f" >/dev/null || { jq ".statusLine = {type: \"command\", command: \"~/.claude/statusline.sh\"}" "$f" > "$f.tmp" && mv "$f.tmp" "$f"; }'
 
 log "Worker env"
 if ! grep -q ">>> worker" "$USER_HOME/.bashrc"; then
@@ -79,6 +83,9 @@ infocmp "\$TERM" >/dev/null 2>&1 || export TERM=xterm-256color
 # <<< worker
 EOF
 fi
+
+# relink on every shell so new skills in shared dotfiles appear without re-running anything (also for pre-existing workers)
+grep -q 'agents/install.sh' "$USER_HOME/.bashrc" || echo 'bash ~/dotfiles/.agents/install.sh >/dev/null 2>&1   # dotfiles: pick up new skills' >> "$USER_HOME/.bashrc"
 
 log "Git identity"
 GIT_NAME="$(sudo -u "$ADMIN" -H git config --global user.name || true)"

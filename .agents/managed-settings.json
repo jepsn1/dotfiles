@@ -1,0 +1,4 @@
+{
+  "statusLine": { "type": "command", "command": "/srv/dotfiles/.agents/statusline.sh" },
+  "permissions": { "allow": ["Bash(gh pr merge:*)"] }
+}
